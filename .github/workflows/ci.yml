@@ -28,6 +28,8 @@ jobs:
       - run: ./scripts/check.sh
       - run: ./scripts/test.sh -race
       - run: ./scripts/fuzz.sh
+      - name: Prepare SQL generator outside mutation timeouts
+        run: GOWORK=off go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0 version
       - run: python3 scripts/mutation-smoke.py
       - run: mise run generate && git diff --exit-code
       - name: Published module boundaries
