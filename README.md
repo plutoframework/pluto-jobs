@@ -9,7 +9,7 @@ Go 1.25.5 or newer. MIT licensed. Initial release; not independently audited.
 ## Install
 
 ```sh
-go get github.com/plutoframework/pluto-jobs@v0.1.0
+go get github.com/plutoframework/pluto-jobs@v0.1.1
 go get github.com/plutoframework/pluto-jobs/stores/postgres@v0.1.0
 ```
 

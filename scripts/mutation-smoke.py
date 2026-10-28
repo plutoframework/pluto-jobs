@@ -58,7 +58,7 @@ for name, file, old, new, test, sql in mutants:
                 shutil.copy2(entry, target / entry.name)
         (target / "go.work").write_text(
             "go 1.25.5\nuse (\n.\n./stores/postgres\n)\n"
-            "replace github.com/plutoframework/pluto-jobs v0.1.0 => .\n")
+            "replace github.com/plutoframework/pluto-jobs v0.1.1 => .\n")
         path = target / file
         source = path.read_text()
         if old not in source:
