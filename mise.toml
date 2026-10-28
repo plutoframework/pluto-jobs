@@ -1,0 +1,21 @@
+[tools]
+go = "1.25.5"
+golangci-lint = "2.15.0"
+
+[tasks.fmt]
+run = "./scripts/fmt.sh"
+
+[tasks.check]
+run = "./scripts/check.sh"
+
+[tasks.race]
+run = "./scripts/test.sh -race"
+
+[tasks.fuzz]
+run = "./scripts/fuzz.sh"
+
+[tasks.mutation]
+run = "python3 scripts/mutation-smoke.py"
+
+[tasks.generate]
+run = "cd stores/postgres && GOWORK=off go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0 generate"

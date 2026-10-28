@@ -1,0 +1,3 @@
+Formatting configuration and tooling wrapper adapted from Pluto Auth
+(https://github.com/plutoframework/pluto-auth), under the MIT License.
+The runtime implementation is new code. See LICENSE.
