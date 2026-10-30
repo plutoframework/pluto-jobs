@@ -27,44 +27,150 @@ go get github.com/plutoframework/pluto-jobs/stores/postgres@v0.1.0
 
 The core is standard-library-only; the PostgreSQL adapter is a separate module.
 
-### 2. Create a typed request
+### 2. Commit the business write and outbox request together
 
-Save this as `cmd/job/main.go`, then run `go run ./cmd/job`:
+The complete synthetic program below inserts an order and enqueues its job in one
+transaction, then runs an explicitly registered worker. It uses PostgreSQL and
+prints completion instead of contacting a delivery provider.
+
+Follow the [copyable Docker/schema/run/verification steps](docs/TRANSACTIONAL-EXAMPLE.md)
+first, then run the checked-in program from `stores/postgres` with
+`DATABASE_URL` configured: `go run ./examples/transactional`.
+
+<!-- example-source: stores/postgres/examples/transactional/main.go -->
 
 ```go
+// A synthetic transactional outbox example; no email or webhook is sent.
 package main
 
 import (
-    "fmt"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
-    jobs "github.com/plutoframework/pluto-jobs"
+	jobs "github.com/plutoframework/pluto-jobs"
+	"github.com/plutoframework/pluto-jobs/stores/postgres"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func main() {
-    request, err := jobs.NewRequest(
-        "purchase.submitted",
-        struct {
-            PurchaseID string `json:"purchase_id"`
-        }{PurchaseID: "purchase-42"},
-        jobs.Options{MaxAttempts: 5},
-    )
-    if err != nil {
-        panic(err)
-    }
+type orderCreated struct {
+	OrderID string `json:"order_id"`
+}
 
-    fmt.Println(request.Kind)
+func run(ctx context.Context) error {
+	pool, err := pgxpool.New(ctx, os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	store, err := postgres.New(pool)
+	if err != nil {
+		return err
+	}
+
+	tenant := "synthetic-tenant"
+	orderID := jobs.NewID()
+
+	request, err := jobs.NewRequest(
+		"order.created",
+		orderCreated{OrderID: orderID},
+		jobs.Options{TenantID: &tenant},
+	)
+	if err != nil {
+		return err
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	if _, err = tx.Exec(
+		ctx,
+		"INSERT INTO pluto_jobs_demo_orders (id) VALUES ($1)",
+		orderID,
+	); err != nil {
+		return err
+	}
+
+	if err = store.EnqueueTx(ctx, tx, request); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	workerCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	handler := func(_ context.Context, job jobs.Job) error {
+		if _, decodeErr := jobs.Decode[orderCreated](job); decodeErr != nil {
+			return jobs.Permanent(decodeErr)
+		}
+
+		// Supply your sender here. Use job.ID as the provider idempotency key.
+		// TenantID is explicit stored metadata; the app owns tenant authorization.
+		fmt.Printf(
+			"synthetic delivery completed: job=%s attempt=%d\n",
+			job.ID,
+			job.Attempt,
+		)
+		cancel()
+
+		return nil
+	}
+	config := jobs.DefaultConfig()
+	config.Concurrency = 1
+
+	worker, err := jobs.NewWorker(
+		store,
+		map[jobs.Kind]jobs.Handler{"order.created": handler},
+		config,
+	)
+	if err != nil {
+		return err
+	}
+
+	err = worker.Run(workerCtx)
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+
+	return err
+}
+
+func main() {
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer cancel()
+
+	if err := run(ctx); err != nil {
+		// Avoid printing raw provider/database errors that may contain secrets.
+		fmt.Fprintln(os.Stderr, "transactional example failed")
+		os.Exit(1)
+	}
 }
 ```
 
-This creates a request; nothing is delivered until you supply storage and a worker.
+<!-- /example-source -->
 
-### 3. Commit and deliver
+### 3. Verify durable completion
 
-Apply the [adapter schema](stores/postgres/schema.sql), register your handlers and
-use `EnqueueTx` in the same transaction as the business write. Start with the
-[transactional example](stores/postgres/examples/transactional/main.go) and its
-[example schema](stores/postgres/examples/transactional/schema.sql). No email or webhook
-client is hidden in the framework.
+After one run, the guide checks that one order exists and its job is `succeeded`
+with `attempts=1`. The adapter [integration tests](stores/postgres/integration_test.go)
+exercise rollback, commit visibility and lease fencing. Constructors never apply
+schema. Real handlers should use the stable job ID as a provider idempotency key.
 
 ## Read further
 
