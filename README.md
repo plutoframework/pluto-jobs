@@ -27,7 +27,21 @@ go get github.com/plutoframework/pluto-jobs/stores/postgres@v0.1.0
 
 The core is standard-library-only; the PostgreSQL adapter is a separate module.
 
-### 2. Commit the business write and outbox request together
+### 2. Connect a business transaction and delivery
+
+Enqueue with the PostgreSQL adapter's `EnqueueTx` in the transaction that writes
+business data. Register a worker handler that calls your actual sender or HTTP
+client, propagates context and returns delivery errors. A handler returning nil
+acknowledges the job; printing a message does not deliver anything.
+
+The [purchasing application worker](https://github.com/plutoframework/pluto-example/blob/main/cmd/worker/main.go)
+and [transactional enqueue operation](https://github.com/plutoframework/pluto-example/blob/main/internal/storage/postgres/jobs.go)
+show actual PostgreSQL-backed audit archival, not an external SIEM sender.
+Delivery is at least
+once; the destination must handle repeated attempts.
+
+### Testing: inspect the transactional outbox locally
+
 
 The complete synthetic program below inserts an order and enqueues its job in one
 transaction, then runs an explicitly registered worker. It uses PostgreSQL and
@@ -165,7 +179,7 @@ func main() {
 
 <!-- /example-source -->
 
-### 3. Verify durable completion
+### Verify the testing example
 
 After one run, the guide checks that one order exists and its job is `succeeded`
 with `attempts=1`. The adapter [integration tests](stores/postgres/integration_test.go)

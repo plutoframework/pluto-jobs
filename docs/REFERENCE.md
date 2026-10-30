@@ -131,7 +131,7 @@ idempotency implications before explicitly constructing replacement work.
 Out of scope: cron/schedulers, DAGs, bulk management, deduplication frameworks,
 other databases, brokers, native senders, provider integrations and benchmarks.
 
-## Runnable synthetic example
+## Testing: transactional outbox with a synthetic handler
 
 Use a disposable database; these commands apply explicit caller migrations.
 No external messages are sent. With `DATABASE_URL` exported:
