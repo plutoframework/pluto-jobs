@@ -11,6 +11,10 @@ on:
         description: Pull request to reevaluate
         required: true
         type: string
+      retry_review:
+        description: Run the model again for this revision (uses review tokens)
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -38,7 +42,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           repository: plutoframework/pluto
-          ref: aef40706a8ffaeddd59e2645c279c17bd44f8690
+          ref: 8b162b1e0ef592ddb9a388d9b552736726359c26
           path: policy
           persist-credentials: false
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
@@ -57,12 +61,13 @@ jobs:
       - name: Review current PR and evaluate policy
         env:
           GPUROUTER_API_KEY: ${{ secrets.GPUROUTER_API_KEY }}
-          BOT_TOKEN: ${{ steps.app.outputs.token }}
-          REVIEW_TOKEN: ${{ steps.app.outputs.token }}
-          BOT_LOGIN: pluto-pr-steward[bot]
+          CHECK_TOKEN: ${{ steps.app.outputs.token }}
+          BOT_TOKEN: ${{ secrets.PLUTO_STEWARD_TOKEN }}
+          REVIEW_TOKEN: ${{ secrets.PLUTO_STEWARD_TOKEN }}
+          BOT_LOGIN: jackbot-advrsty
           PLUTO_REVIEW_APP_ID: ${{ vars.PLUTO_REVIEW_APP_ID }}
           TARGET_REPOSITORY: ${{ github.repository }}
-          POLICY_SHA: aef40706a8ffaeddd59e2645c279c17bd44f8690
+          POLICY_SHA: 8b162b1e0ef592ddb9a388d9b552736726359c26
           PR_AGENT_SOURCE: ${{ github.workspace }}/pr-agent
           ENABLE_AUTO_MERGE: ${{ vars.PLUTO_AUTO_MERGE }}
         run: python3 policy/scripts/pr_automation/controller.py
