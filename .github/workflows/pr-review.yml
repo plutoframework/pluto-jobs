@@ -18,6 +18,51 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review:
-    uses: plutoframework/pluto/.github/workflows/pr-review-shared.yml@4a6ff0dace585eb9e4631b8aceb33ec22a326553
-    with:
-      policy_revision: 4a6ff0dace585eb9e4631b8aceb33ec22a326553
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.head_branch != github.event.repository.default_branch &&
+       contains(fromJSON('["pull_request", "pull_request_review", "dynamic"]'), github.event.workflow_run.event))
+    name: Review and enforce merge policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: pluto-review
+    steps:
+      - name: Create repository-scoped bot token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510
+        with:
+          app-id: ${{ vars.PLUTO_REVIEW_APP_ID }}
+          private-key: ${{ secrets.PLUTO_REVIEW_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: plutoframework/pluto
+          ref: 2915e5c23d910733cda5c45e376bbf8564701b75
+          path: policy
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: The-PR-Agent/pr-agent
+          ref: 04b641aa3c8ddbff111eeafb8cf0e8ea1ab8df2c
+          path: pr-agent
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@4c58170a945e4e68ce3fc5b7af3d341d9b8c64ef
+        with:
+          version: "0.13.5"
+          enable-cache: false
+      - name: Install locked reviewer dependencies
+        working-directory: pr-agent
+        run: uv sync --frozen --extra github --no-dev
+      - name: Review current PR and evaluate policy
+        env:
+          GPUROUTER_API_KEY: ${{ secrets.GPUROUTER_API_KEY }}
+          BOT_TOKEN: ${{ steps.app.outputs.token }}
+          REVIEW_TOKEN: ${{ steps.app.outputs.token }}
+          BOT_LOGIN: pluto-pr-steward[bot]
+          PLUTO_REVIEW_APP_ID: ${{ vars.PLUTO_REVIEW_APP_ID }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+          POLICY_SHA: 2915e5c23d910733cda5c45e376bbf8564701b75
+          PR_AGENT_SOURCE: ${{ github.workspace }}/pr-agent
+          ENABLE_AUTO_MERGE: ${{ vars.PLUTO_AUTO_MERGE }}
+        run: python3 policy/scripts/pr_automation/controller.py
