@@ -1,0 +1,10 @@
+name: Notify PR review
+on:
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions: {}
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'Review state changed. The protected workflow_run handler reevaluates GitHub state.'

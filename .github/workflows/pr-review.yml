@@ -1,0 +1,23 @@
+name: Pluto PR review
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_run:
+    workflows: ["checks", "Pluto security", "Notify PR review", "CodeQL"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Pull request to reevaluate
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: pluto-review-${{ github.event.pull_request.head.ref || github.event.workflow_run.head_branch || inputs.pr_number }}
+  cancel-in-progress: false
+jobs:
+  review:
+    uses: plutoframework/pluto/.github/workflows/pr-review-shared.yml@3c40ee88cf61e923c618e1e062e2a6c4271923f8
+    with:
+      policy_revision: 3c40ee88cf61e923c618e1e062e2a6c4271923f8
