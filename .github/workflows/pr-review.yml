@@ -18,6 +18,6 @@ concurrency:
   cancel-in-progress: false
 jobs:
   review:
-    uses: plutoframework/pluto/.github/workflows/pr-review-shared.yml@3c40ee88cf61e923c618e1e062e2a6c4271923f8
+    uses: plutoframework/pluto/.github/workflows/pr-review-shared.yml@4a6ff0dace585eb9e4631b8aceb33ec22a326553
     with:
-      policy_revision: 3c40ee88cf61e923c618e1e062e2a6c4271923f8
+      policy_revision: 4a6ff0dace585eb9e4631b8aceb33ec22a326553
