@@ -170,6 +170,7 @@ func main() {
 	defer cancel()
 
 	if err := run(ctx); err != nil {
+
 		// Avoid printing raw provider/database errors that may contain secrets.
 		fmt.Fprintln(os.Stderr, "transactional example failed")
 		os.Exit(1)
