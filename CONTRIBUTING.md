@@ -62,3 +62,12 @@ Run `make test TEST_ARGS=-race` for race detection.
 
 Keep running the documented fuzz, mutation and service integration checks when
 the change requires them; `make check` does not replace those checks.
+
+Go checks enforce a blank line before each standalone comment block except at
+file line one, including comments at the start of a code block. Consecutive
+comment lines stay together; inline comments, generated files and compiler/linter
+directives are preserved. The formatter applies comment spacing after the Go
+formatters; checks compare that combined result so gofumpt cannot undo this rule.
+The stdlib-only helper in `scripts/commentspacing` is synchronized from
+`pluto/scripts/commentspacing`; run `go test ./scripts/commentspacing` after
+changing it. Test fixtures under `testdata` are excluded from formatting.

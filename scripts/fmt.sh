@@ -9,3 +9,6 @@ for module in . stores/postgres; do
   "$root/scripts/golangci.sh" run --enable-only wsl_v5 --fix ./...
   "$root/scripts/golangci.sh" fmt ./...
 done
+
+cd "$root"
+go run ./scripts/commentspacing -write .
