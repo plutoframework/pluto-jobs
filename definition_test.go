@@ -53,7 +53,11 @@ func TestTypedDefinitionBoundaries(t *testing.T) {
 	)
 
 	handler, err := definition.Bind(
-		func(_ context.Context, delivery jobs.Delivery, payload orderNotice) error {
+		func(
+			_ context.Context,
+			delivery jobs.Delivery,
+			payload orderNotice,
+		) error {
 			calls++
 
 			delivered = delivery
@@ -159,7 +163,9 @@ func TestTypedExportDefinitionAndErrors(t *testing.T) {
 	transient := errors.New("delivery unavailable")
 
 	handler, err := definition.Bind(
-		func(context.Context, jobs.Delivery, exportReady) error { return transient },
+		func(context.Context, jobs.Delivery, exportReady) error {
+			return transient
+		},
 	)
 	if err != nil {
 		t.Fatal(err)

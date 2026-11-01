@@ -30,15 +30,36 @@ func TestTypedDefinitionWorkerSettlement(t *testing.T) {
 		state          string
 		code           Code
 	}{
-		{name: "permanent-invalid", attempt: 1, invalid: true, state: "failed", code: CodePermanent},
-		{name: "retry-operation", attempt: 1, operationError: errors.New("transient"), state: "pending", code: CodeHandler},
-		{name: "finite-operation", attempt: 2, operationError: errors.New("transient"), state: "failed", code: CodeHandler},
+		{
+			name:    "permanent-invalid",
+			attempt: 1,
+			invalid: true,
+			state:   "failed",
+			code:    CodePermanent,
+		},
+		{
+			name:           "retry-operation",
+			attempt:        1,
+			operationError: errors.New("transient"),
+			state:          "pending",
+			code:           CodeHandler,
+		},
+		{
+			name:           "finite-operation",
+			attempt:        2,
+			operationError: errors.New("transient"),
+			state:          "failed",
+			code:           CodeHandler,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
 
 			handler, err := definition.Bind(
-				func(context.Context, Delivery, payload) error { calls++; return tc.operationError },
+				func(context.Context, Delivery, payload) error {
+					calls++
+					return tc.operationError
+				},
 			)
 			if err != nil {
 				t.Fatal(err)

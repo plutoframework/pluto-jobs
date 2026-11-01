@@ -10,7 +10,8 @@ import (
 
 // Delivery supplies stored delivery metadata to a typed handler. TenantID is
 // application metadata, not execution authority; re-establish current access in
-// the operation. ID stays stable across retries and can key downstream deduping.
+// the operation. ID stays stable across retries and can key downstream
+// deduping.
 type Delivery struct {
 	ID          string
 	TenantID    *string
@@ -20,7 +21,8 @@ type Delivery struct {
 
 // Definition binds one event kind to its payload type and domain validation.
 // It is immutable after construction. Validation must not perform I/O, mutate
-// shared facts, or rely on ambient authority. Go cannot enforce callback purity.
+// shared facts, or rely on ambient authority. Go cannot enforce callback
+// purity.
 // This is an additive boundary, not mandatory adoption for existing raw APIs.
 type Definition[T any] struct {
 	kind     Kind
@@ -28,7 +30,8 @@ type Definition[T any] struct {
 }
 
 // NewDefinition requires explicit validation, including an explicit no-op where
-// a payload has no domain invariants. It does not register a worker or perform I/O.
+// a payload has no domain invariants. It does not register a worker or perform
+// I/O.
 func NewDefinition[T any](
 	kind Kind,
 	validate func(T) error,
@@ -123,5 +126,7 @@ func (d *Definition[T]) Bind(
 // Error strings remain bounded; callers can inspect validation causes with Is.
 type invalidPayload struct{ cause error }
 
-func (e invalidPayload) Error() string   { return "jobs: invalid typed payload" }
+func (e invalidPayload) Error() string {
+	return "jobs: invalid typed payload"
+}
 func (e invalidPayload) Unwrap() []error { return []error{ErrInvalid, e.cause} }

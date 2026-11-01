@@ -20,7 +20,8 @@ func database(t *testing.T) (*Store, *pgxpool.Pool) {
 	if url == "" {
 		if os.Getenv("PLUTO_JOBS_REQUIRE_DATABASE") == "1" {
 			t.Fatal(
-				"required Jobs SQL integration needs PLUTO_JOBS_TEST_DATABASE_URL",
+				"required Jobs SQL integration " +
+					"needs PLUTO_JOBS_TEST_DATABASE_URL",
 			)
 		}
 
@@ -29,7 +30,8 @@ func database(t *testing.T) (*Store, *pgxpool.Pool) {
 		}
 
 		t.Skip(
-			"set PLUTO_JOBS_TEST_DATABASE_URL to a disposable Postgres database",
+			"set PLUTO_JOBS_TEST_DATABASE_URL " +
+				"to a disposable Postgres database",
 		)
 	}
 
@@ -47,7 +49,13 @@ func database(t *testing.T) (*Store, *pgxpool.Pool) {
 	}
 
 	t.Cleanup(
-		func() { _, _ = admin.Exec(context.Background(), "DROP SCHEMA "+schema+" CASCADE"); admin.Close() },
+		func() {
+			_, _ = admin.Exec(
+				context.Background(),
+				"DROP SCHEMA "+schema+" CASCADE",
+			)
+			admin.Close()
+		},
 	)
 
 	config, err := pgxpool.ParseConfig(url)
@@ -118,7 +126,9 @@ func expire(t *testing.T, pool *pgxpool.Pool, id string) {
 
 	if _, err := pool.Exec(
 		context.Background(),
-		"UPDATE pluto_jobs SET lease_until = clock_timestamp() - interval '1 second' WHERE id=$1",
+		"UPDATE pluto_jobs SET lease_until "+
+			"= clock_timestamp() - interval '1 "+
+			"second' WHERE id=$1",
 		id,
 	); err != nil {
 		t.Fatal(err)
@@ -173,7 +183,10 @@ func TestTransactionAtomicity(t *testing.T) {
 		}
 
 		var orders, queued int
-		if err = pool.QueryRow(ctx, "SELECT (SELECT count(*) FROM orders WHERE id=$1), (SELECT count(*) FROM pluto_jobs WHERE id=$1)", r.ID).
+		if err = pool.QueryRow(ctx, "SELECT (SELECT count(*) FROM "+
+			"orders WHERE id=$1), (SELECT "+
+			"count(*) FROM pluto_jobs WHERE "+
+			"id=$1)", r.ID).
 			Scan(&orders, &queued); err != nil {
 			t.Fatal(err)
 		}
@@ -296,7 +309,8 @@ func TestLeaseExpiryFencesStaleOwners(t *testing.T) {
 		token    string
 		attempts int
 	)
-	if err = pool.QueryRow(ctx, "SELECT claim_token,attempts FROM pluto_jobs WHERE id=$1", r.ID).
+	if err = pool.QueryRow(ctx, "SELECT claim_token,attempts FROM "+
+		"pluto_jobs WHERE id=$1", r.ID).
 		Scan(&token, &attempts); err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +340,9 @@ func TestDelayRetryAndCrashExhaustion(t *testing.T) {
 
 	if _, err := pool.Exec(
 		ctx,
-		"UPDATE pluto_jobs SET available_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+		"UPDATE pluto_jobs SET "+
+			"available_at=clock_timestamp()-inte"+
+			"rval '1 second' WHERE id=$1",
 		r.ID,
 	); err != nil {
 		t.Fatal(err)
@@ -342,7 +358,10 @@ func TestDelayRetryAndCrashExhaustion(t *testing.T) {
 	}
 
 	var delayed bool
-	if err := pool.QueryRow(ctx, "SELECT available_at > clock_timestamp() + interval '59 minutes' FROM pluto_jobs WHERE id=$1", r.ID).
+	if err := pool.QueryRow(ctx, "SELECT available_at > "+
+		"clock_timestamp() + interval '59 "+
+		"minutes' FROM pluto_jobs WHERE "+
+		"id=$1", r.ID).
 		Scan(&delayed); err != nil ||
 		!delayed {
 		t.Fatal("retry delay not persisted", err)
@@ -350,7 +369,9 @@ func TestDelayRetryAndCrashExhaustion(t *testing.T) {
 
 	if _, err := pool.Exec(
 		ctx,
-		"UPDATE pluto_jobs SET available_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+		"UPDATE pluto_jobs SET "+
+			"available_at=clock_timestamp()-inte"+
+			"rval '1 second' WHERE id=$1",
 		r.ID,
 	); err != nil {
 		t.Fatal(err)
@@ -392,7 +413,8 @@ func TestDelayRetryAndCrashExhaustion(t *testing.T) {
 		state, diagnostic string
 		attempts          int
 	)
-	if err := pool.QueryRow(ctx, "SELECT state,diagnostic,attempts FROM pluto_jobs WHERE id=$1", crash.ID).
+	if err := pool.QueryRow(ctx, "SELECT state,diagnostic,attempts "+
+		"FROM pluto_jobs WHERE id=$1", crash.ID).
 		Scan(&state, &diagnostic, &attempts); err != nil {
 		t.Fatal(err)
 	}
@@ -453,7 +475,8 @@ func TestPersistenceGuardsAndInvalidStoredWork(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// A row tampered with outside the trusted enqueue API fails before dispatch.
+	// A row tampered with outside the trusted enqueue API fails before
+	// dispatch.
 	r = newRequest(t, 1)
 	if err := s.Enqueue(ctx, r); err != nil {
 		t.Fatal(err)
@@ -476,7 +499,10 @@ func TestPersistenceGuardsAndInvalidStoredWork(t *testing.T) {
 	w, err := jobs.NewWorker(
 		s,
 		map[jobs.Kind]jobs.Handler{
-			r.Kind: func(context.Context, jobs.Job) error { called = true; return nil },
+			r.Kind: func(context.Context, jobs.Job) error {
+				called = true
+				return nil
+			},
 		},
 		config,
 	)
@@ -492,7 +518,11 @@ func TestPersistenceGuardsAndInvalidStoredWork(t *testing.T) {
 	}
 
 	var diagnostic string
-	if err = pool.QueryRow(ctx, "SELECT diagnostic FROM pluto_jobs WHERE id=$1", r.ID).
+	if err = pool.QueryRow(
+		ctx,
+		"SELECT diagnostic FROM pluto_jobs WHERE id=$1",
+		r.ID,
+	).
 		Scan(&diagnostic); err != nil {
 		t.Fatal(err)
 	}

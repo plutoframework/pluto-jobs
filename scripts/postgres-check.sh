@@ -15,7 +15,8 @@ docker run -d --rm --name "$container" \
   -e POSTGRES_DB=pluto_jobs -p 127.0.0.1::5432 postgres:17.6-alpine >/dev/null
 ready=false
 for attempt in $(seq 1 40); do
-  if docker exec "$container" pg_isready -U pluto -d pluto_jobs >/dev/null 2>&1; then
+  if docker exec "$container" pg_isready -U pluto -d pluto_jobs \
+    >/dev/null 2>&1; then
     ready=true
     break
   fi
@@ -26,23 +27,42 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 port=$(docker port "$container" 5432/tcp | awk -F: '{print $NF}')
-export PLUTO_JOBS_TEST_DATABASE_URL="postgres://pluto:local_only@127.0.0.1:${port}/pluto_jobs?sslmode=disable"
+database_url="postgres://pluto:local_only@127.0.0.1:${port}"
+database_url+="/pluto_jobs?sslmode=disable"
+export PLUTO_JOBS_TEST_DATABASE_URL="$database_url"
 export PLUTO_JOBS_REQUIRE_DATABASE=1
 (cd stores/postgres && go test -race -count=1 -json ./...) >"$result" || {
   cat "$result"
   exit 1
 }
 python3 - "$result" <<'PY'
-import json,sys
+import json, sys
 from pathlib import Path
-records=[json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()]
-expected={'TestTransactionAtomicity','TestConcurrentClaimsExcludeOtherWorkers',
-          'TestLeaseExpiryFencesStaleOwners','TestDelayRetryAndCrashExhaustion',
-          'TestPersistenceGuardsAndInvalidStoredWork','TestInsertCommitsOrderAndJobTogether'}
-passed={record.get('Test') for record in records if record.get('Action')=='pass'}
-skipped=[record.get('Test') for record in records if record.get('Action')=='skip' and record.get('Test')]
-if skipped or not expected<=passed:
-    raise SystemExit(f'Required Jobs SQL evidence missing: skipped={skipped}, absent={expected-passed}')
-print('Required Jobs PostgreSQL cases executed: '+', '.join(sorted(expected)))
+
+records = [
+    json.loads(line) for line in Path(sys.argv[1]).read_text().splitlines()
+]
+expected = {
+    "TestTransactionAtomicity",
+    "TestConcurrentClaimsExcludeOtherWorkers",
+    "TestLeaseExpiryFencesStaleOwners",
+    "TestDelayRetryAndCrashExhaustion",
+    "TestPersistenceGuardsAndInvalidStoredWork",
+    "TestInsertCommitsOrderAndJobTogether",
+}
+passed = {
+    record.get("Test") for record in records if record.get("Action") == "pass"
+}
+skipped = [
+    record.get("Test")
+    for record in records
+    if record.get("Action") == "skip" and record.get("Test")
+]
+if skipped or not expected <= passed:
+    raise SystemExit(
+        f"Required Jobs SQL evidence missing: skipped={skipped}, "
+        f"absent={expected-passed}"
+    )
+print("Required Jobs PostgreSQL cases executed: " + ", ".join(sorted(expected)))
 PY
 python3 scripts/mutation-smoke.py
