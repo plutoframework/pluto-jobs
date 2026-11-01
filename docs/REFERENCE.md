@@ -384,3 +384,8 @@ hold a database transaction across external delivery. Validation errors preserve
 persist only bounded diagnostic codes. Order-notice and bounded export-ready
 fixtures cover distinct payload invariants; worker settlement tests exercise
 permanent invalid delivery, retry and final-attempt failure.
+
+Product documentation for the unpublished typed definition contract is tracked
+in the [architecture companion](https://github.com/plutoframework/pluto-site/pull/5).
+It covers explicit registration, strict decoding, permanent validation failures
+and finite-attempt retries; external effects retain at-least-once semantics.

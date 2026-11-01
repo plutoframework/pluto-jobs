@@ -15,7 +15,7 @@ docker run -d --rm --name "$container" \
   -e POSTGRES_DB=pluto_jobs -p 127.0.0.1::5432 postgres:17.6-alpine >/dev/null
 ready=false
 for attempt in $(seq 1 40); do
-  if docker exec "$container" pg_isready -U pluto -d pluto_jobs \
+  if docker exec "$container" pg_isready -h 127.0.0.1 -U pluto -d pluto_jobs \
     >/dev/null 2>&1; then
     ready=true
     break

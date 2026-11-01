@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -494,13 +495,15 @@ func TestPersistenceGuardsAndInvalidStoredWork(t *testing.T) {
 	config := jobs.DefaultConfig()
 	config.Concurrency = 1
 	config.PollInterval = time.Millisecond
-	called := false
+
+	var called atomic.Bool
 
 	w, err := jobs.NewWorker(
 		s,
 		map[jobs.Kind]jobs.Handler{
 			r.Kind: func(context.Context, jobs.Job) error {
-				called = true
+				called.Store(true)
+
 				return nil
 			},
 		},
@@ -510,24 +513,39 @@ func TestPersistenceGuardsAndInvalidStoredWork(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	workerCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	workerCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	if err = w.Run(workerCtx); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatal(err)
-	}
+	done := make(chan error, 1)
+	go func() { done <- w.Run(workerCtx) }()
 
 	var diagnostic string
-	if err = pool.QueryRow(
-		ctx,
-		"SELECT diagnostic FROM pluto_jobs WHERE id=$1",
-		r.ID,
-	).
-		Scan(&diagnostic); err != nil {
+	for workerCtx.Err() == nil {
+		if err = pool.QueryRow(
+			ctx,
+			"SELECT diagnostic FROM pluto_jobs WHERE id=$1",
+			r.ID,
+		).Scan(&diagnostic); err != nil {
+			cancel()
+			<-done
+			t.Fatal(err)
+		}
+
+		if diagnostic == "invalid" || called.Load() {
+			break
+		}
+
+		time.Sleep(time.Millisecond)
+	}
+
+	cancel()
+
+	if err = <-done; !errors.Is(err, context.Canceled) &&
+		!errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal(err)
 	}
 
-	if called || diagnostic != "invalid" {
+	if called.Load() || diagnostic != "invalid" {
 		t.Fatal("invalid stored work reached handler")
 	}
 }
