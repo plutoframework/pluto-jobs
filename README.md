@@ -201,3 +201,8 @@ Delivery is at least once. Handlers must tolerate duplicates and cooperate with 
 Start with [CONTRIBUTING.md](CONTRIBUTING.md), then choose a [good first issue](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks).
 
 MIT licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Candidate source also offers kind-bound `Definition[T]` payload validation and
+strict typed handler adapters. This unpublished additive API is documented in
+[`docs/REFERENCE.md`](docs/REFERENCE.md#unpublished-typed-effect-definitions);
+the published raw request/handler APIs remain compatible.

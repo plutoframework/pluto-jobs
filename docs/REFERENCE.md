@@ -338,3 +338,36 @@ Fuzzing runs a bounded request-validation target. No performance claims are made
 - `stores/postgres/integration_test.go`: real transactional/concurrent tests.
 - `stores/postgres/examples/transactional`: compiling synthetic example.
 - `scripts`, `mise.toml`, `.golangci.yml`: pinned checks and formatting.
+
+## Unpublished typed effect definitions
+
+The additive `Definition[T]`, `NewDefinition`, `Prepare` and `Bind` APIs are
+candidate source only, unavailable in the published v0.1.1 pin. A definition owns
+one kind, payload type and explicit domain validator. `Prepare` validates before
+request construction; `Bind` checks stored metadata, exact kind, unknown fields
+for ordinary structs and domain invariants before invoking a typed operation.
+Invalid payloads become permanent failures; operation errors retain normal
+finite-attempt retry and per-claim fencing. Custom JSON unmarshaling retains its
+application-defined semantics. This does not make tenant metadata authorization
+or make existing raw handlers adopt the new boundary automatically.
+
+```go
+type OrderCreated struct { OrderID string `json:"order_id"` }
+created, err := jobs.NewDefinition("order.created", validateOrderCreated)
+// Propagate err. Compose once; use created.Kind() as explicit registration key.
+handler, err := created.Bind(func(ctx context.Context, delivery jobs.Delivery,
+    payload OrderCreated) error {
+    return operation.DeliverOrder(ctx, delivery.ID, payload.OrderID)
+})
+// Propagate err before NewWorker. The operation re-establishes current authority.
+request, err := created.Prepare(payload, jobs.Options{MaxAttempts: 5})
+// Retain request.ID and enqueue using the application's business transaction.
+```
+
+`Delivery` exposes a copied tenant string and stable job ID, attempt and maximum
+attempts. Handlers use the stable ID for downstream deduplication; they must not
+hold a database transaction across external delivery. Validation errors preserve
+`errors.Is` causes through a fixed public error string; workers continue to
+persist only bounded diagnostic codes. Order-notice and bounded export-ready
+fixtures cover distinct payload invariants; worker settlement tests exercise
+permanent invalid delivery, retry and final-attempt failure.

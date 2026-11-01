@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small guard mutations; never count build failures/timeouts as kills."""
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -8,6 +9,9 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 mutants = [
+    ("typed event kind", "definition.go", "if job.Kind != d.kind", "if false", "TestTypedDefinitionBoundaries/different-kind", False),
+    ("typed strict fields", "definition.go", "decoder.DisallowUnknownFields()", "", "TestTypedDefinitionBoundaries/unknown-field", False),
+    ("typed domain validation", "definition.go", "if err := d.validate(payload); err != nil {\n\t\t\treturn Permanent(invalidPayload{cause: err})\n\t\t}", "if false { return Permanent(ErrInvalid) }", "TestTypedDefinitionBoundaries/domain-invalid", False),
     ("request attempt ceiling", "job.go", "r.MaxAttempts > MaxAttempts",
      "false", "TestRequestValidation", False),
     ("stored metadata validation", "worker.go", "if job.Validate() != nil {",
@@ -24,6 +28,11 @@ mutants = [
      "j.attempts >= j.max_attempts", "j.attempts > j.max_attempts",
      "TestDelayRetryAndCrashExhaustion", True),
 ]
+typed_assertions = {
+    "typed event kind": "not rejected: <nil>",
+    "typed strict fields": "not rejected: <nil>",
+    "typed domain validation": "delivery metadata or payload lost",
+}
 counts = dict(killed=0, survived=0, build_failure=0, timeout=0, skipped=0)
 
 
@@ -81,6 +90,12 @@ for name, file, old, new, test, sql in mutants:
                 status = "survived"
             elif "[build failed]" in result.stdout or "[setup failed]" in result.stdout:
                 status = "build_failure"
+            elif name in typed_assertions:
+                expected = typed_assertions[name]
+                marker = re.search(r"^\s+definition_test\.go:\d+: " + re.escape(expected) + r"$",
+                                   result.stdout, re.MULTILINE)
+                leaf = "--- FAIL: " + test
+                status = "killed" if marker and leaf in result.stdout and "panic:" not in result.stdout else "build_failure"
             elif "--- FAIL:" in result.stdout or "panic:" in result.stdout:
                 status = "killed"
             else:

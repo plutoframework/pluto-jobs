@@ -18,6 +18,12 @@ func database(t *testing.T) (*Store, *pgxpool.Pool) {
 
 	url := os.Getenv("PLUTO_JOBS_TEST_DATABASE_URL")
 	if url == "" {
+		if os.Getenv("PLUTO_JOBS_REQUIRE_DATABASE") == "1" {
+			t.Fatal(
+				"required Jobs SQL integration needs PLUTO_JOBS_TEST_DATABASE_URL",
+			)
+		}
+
 		if os.Getenv("CI") != "" {
 			t.Fatal("CI requires PLUTO_JOBS_TEST_DATABASE_URL")
 		}

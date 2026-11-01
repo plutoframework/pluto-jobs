@@ -57,6 +57,7 @@ var (
 // NewID generates a random 128-bit identifier without external dependencies.
 func NewID() string {
 	var b [16]byte
+
 	// crypto/rand.Read cannot fail on supported Go platforms.
 	_, _ = rand.Read(b[:])
 
