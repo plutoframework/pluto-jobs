@@ -121,6 +121,7 @@ func Insert(
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+
 		// Keep this ID to reconcile an uncertain commit; do not enqueue anew.
 		return request.ID, err
 	}
