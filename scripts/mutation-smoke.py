@@ -9,6 +9,7 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 mutants = [
+    ("typed raw UTF8", "definition.go", "!utf8.Valid(job.Payload)", "!utf8.Valid(job.Payload) && false", "TestTypedDefinitionBoundaries/invalid-utf8", False),
     ("typed event kind", "definition.go", "if job.Kind != d.kind", "if false", "TestTypedDefinitionBoundaries/different-kind", False),
     ("typed strict fields", "definition.go", "decoder.DisallowUnknownFields()", "", "TestTypedDefinitionBoundaries/unknown-field", False),
     ("typed domain validation", "definition.go", "if err := d.validate(payload); err != nil {\n\t\t\treturn Permanent(invalidPayload{cause: err})\n\t\t}", "if false { return Permanent(ErrInvalid) }", "TestTypedDefinitionBoundaries/domain-invalid", False),
@@ -29,9 +30,10 @@ mutants = [
      "TestDelayRetryAndCrashExhaustion", True),
 ]
 typed_assertions = {
+    "typed raw UTF8": "not rejected: <nil>",
     "typed event kind": "not rejected: <nil>",
     "typed strict fields": "not rejected: <nil>",
-    "typed domain validation": "delivery metadata or payload lost",
+    "typed domain validation": "not rejected: <nil>",
 }
 counts = dict(killed=0, survived=0, build_failure=0, timeout=0, skipped=0)
 
@@ -95,7 +97,7 @@ for name, file, old, new, test, sql in mutants:
                 marker = re.search(r"^\s+definition_test\.go:\d+: " + re.escape(expected) + r"$",
                                    result.stdout, re.MULTILINE)
                 leaf = "--- FAIL: " + test
-                status = "killed" if marker and leaf in result.stdout and "panic:" not in result.stdout else "build_failure"
+                status = "killed" if marker and leaf in result.stdout and "panic" not in result.stdout else "build_failure"
             elif "--- FAIL:" in result.stdout or "panic:" in result.stdout:
                 status = "killed"
             else:

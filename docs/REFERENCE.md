@@ -345,7 +345,7 @@ Fuzzing runs a bounded request-validation target. No performance claims are made
 The additive `Definition[T]`, `NewDefinition`, `Prepare` and `Bind` APIs are
 candidate source only, unavailable in the published v0.1.1 pin. A definition owns
 one kind, payload type and explicit domain validator. `Prepare` validates before
-request construction; `Bind` checks stored metadata, exact kind, unknown fields
+request construction; `Bind` checks stored metadata, exact kind, raw UTF-8 validity before JSON decoding, unknown fields
 for ordinary structs and domain invariants before invoking a typed operation.
 Invalid payloads become permanent failures; operation errors retain normal
 finite-attempt retry and per-claim fencing. Custom JSON unmarshaling retains its

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"unicode/utf8"
 )
 
 // Delivery supplies stored delivery metadata to a typed handler. TenantID is
@@ -81,6 +82,10 @@ func (d *Definition[T]) Bind(
 		}
 
 		if job.Kind != d.kind {
+			return Permanent(ErrInvalid)
+		}
+
+		if !utf8.Valid(job.Payload) {
 			return Permanent(ErrInvalid)
 		}
 

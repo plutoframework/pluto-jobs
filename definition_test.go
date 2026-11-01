@@ -46,19 +46,23 @@ func TestTypedDefinitionBoundaries(t *testing.T) {
 
 	calls := 0
 
+	var (
+		delivered        jobs.Delivery
+		deliveredPayload orderNotice
+		deliveredTenant  string
+	)
+
 	handler, err := definition.Bind(
 		func(_ context.Context, delivery jobs.Delivery, payload orderNotice) error {
 			calls++
 
-			if delivery.ID != request.ID || delivery.Attempt != 1 ||
-				delivery.MaxAttempts != 3 ||
-				delivery.TenantID == nil ||
-				*delivery.TenantID != "tenant-a" ||
-				payload.OrderID != "order-1" {
-				t.Fatal("delivery metadata or payload lost")
-			}
+			delivered = delivery
+			deliveredPayload = payload
 
-			*delivery.TenantID = "mutated"
+			if delivery.TenantID != nil {
+				deliveredTenant = *delivery.TenantID
+				*delivery.TenantID = "mutated"
+			}
 
 			return nil
 		},
@@ -76,6 +80,13 @@ func TestTypedDefinitionBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if delivered.ID != request.ID || delivered.Attempt != 1 ||
+		delivered.MaxAttempts != 3 ||
+		deliveredTenant != "tenant-a" ||
+		deliveredPayload.OrderID != "order-1" {
+		t.Fatal("delivery metadata or payload lost")
+	}
+
 	if tenant != "tenant-a" || *job.TenantID != "tenant-a" {
 		t.Fatal("delivery aliases stored tenant")
 	}
@@ -90,6 +101,7 @@ func TestTypedDefinitionBoundaries(t *testing.T) {
 		{"domain-invalid", request.Kind, `{"order_id":""}`},
 		{"trailing-value", request.Kind, `{"order_id":"order-1"} {}`},
 		{"malformed", request.Kind, `{`},
+		{"invalid-utf8", request.Kind, "{\"order_id\":\"\xff\"}"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			invalid := job
