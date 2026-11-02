@@ -24,7 +24,8 @@ in one PostgreSQL transaction. Its worker decodes the typed payload and calls an
 injected real sender. Keep business authorization before `Insert`; the tenant
 comes from verified server context, not an arbitrary request header.
 
-Apply the library's `stores/postgres/schema.sql` and this application table using
+Apply the library's `stores/postgres/schema.sql` and this application table
+using
 your migration system before startup:
 
 ```sql
@@ -229,7 +230,8 @@ Defaults: 4 handlers in parallel, 1-second empty polling, 60-second leases,
 30-second handler deadlines, 5-second store deadlines, exponential retry from
 1 second capped at 1 hour. Retry delay is `min(base * 2^(attempt-1), max)`.
 Configuration is explicit: concurrency 1–256; positive polling/deadlines/base;
-lease at most 24 hours, store timeout at most 1 hour, retry cap at most 24 hours.
+lease at most 24 hours, store timeout at most 1 hour, retry cap at most 24
+hours.
 The lease must exceed the handler timeout plus twice the store timeout, leaving
 time for claim transport and settlement. Each worker claims one job at a time
 per slot, without prefetching. Empty polls and exhausted-lease cleanup each do
@@ -239,14 +241,16 @@ owns supervision/restart. Cancellation returns the context error.
 There is no heartbeat or renewal API in this MVP. Set a finite handler timeout
 appropriate to the operation. Its context is canceled before the configured
 lease can expire under normal timing. Postgres can reclaim an expired claim;
-ack/retry/fail require its unique claim token **and an unexpired lease**. A stale
+ack/retry/fail require its unique claim token **and an unexpired lease**. A
+stale
 worker cannot settle a newer claim. Database transactions end before handler
 execution. Abandoned claims consume attempts; expiry after the final claim is
 marked failed by a later worker poll, even if no handler ever returned.
 
 `Run` cancels handlers on shutdown and waits for them, then gives settlement a
 fresh bounded context. Cancellation is cooperative: Go cannot kill a handler
-that ignores its context, stop its external side effects, or guarantee a shutdown
+that ignores its context, stop its external side effects, or guarantee a
+shutdown
 deadline for it. Such a handler can outlive its lease and overlap a replacement;
 late settlement is fenced. No detached handler goroutines hide that limitation.
 Configure external request timeouts and have your process supervisor enforce
@@ -256,7 +260,8 @@ an eventual exit if needed. Lease durations assume a reasonably stable DB clock.
 
 Delivery is **at least once**, never exactly once. An external side effect may
 succeed immediately before a worker crashes or loses its acknowledgement.
-Use stable `job.ID` as a provider idempotency key, or make the handler's business
+Use stable `job.ID` as a provider idempotency key, or make the handler's
+business
 operation idempotent. A finite attempt budget means eventual success is not
 promised. Deploy compatible handlers before producers and retain them until
 old work drains; unregistered kinds fail rather than waiting for a new deploy.
@@ -291,7 +296,8 @@ cd stores/postgres
 go run ./examples/transactional
 ```
 
-The example inserts a synthetic order and job in one transaction, runs a handler,
+The example inserts a synthetic order and job in one transaction, runs a
+handler,
 prints only its job ID/attempt, acknowledges it and exits. Use a fresh schema
 for repeated migration runs. It is intentionally not a provider integration.
 
@@ -318,7 +324,9 @@ CI treats a missing URL as a failure.
 docker run -d --rm --name pluto-jobs-test \
   -e POSTGRES_PASSWORD=jobs -e POSTGRES_DB=jobs \
   -p 127.0.0.1:55432:5432 postgres:17-alpine
-export PLUTO_JOBS_TEST_DATABASE_URL='postgres://postgres:jobs@127.0.0.1:55432/jobs?sslmode=disable'
+PLUTO_JOBS_TEST_DATABASE_URL='postgres://postgres:jobs@127.0.0.1:55432'
+PLUTO_JOBS_TEST_DATABASE_URL+='/jobs?sslmode=disable'
+export PLUTO_JOBS_TEST_DATABASE_URL
 ./scripts/test.sh -race
 python3 scripts/mutation-smoke.py
 docker stop pluto-jobs-test
@@ -327,7 +335,8 @@ docker stop pluto-jobs-test
 Mutation smoke independently changes validation, retry bounds, SQL lease and
 ownership guards and abandoned-attempt accounting. It reports killed, survived,
 build failure and timeout separately; SQL mutants require the database URL.
-Fuzzing runs a bounded request-validation target. No performance claims are made.
+Fuzzing runs a bounded request-validation target. No performance claims are
+made.
 
 ## Code tour
 
@@ -339,3 +348,44 @@ Fuzzing runs a bounded request-validation target. No performance claims are made
 - `stores/postgres/integration_test.go`: real transactional/concurrent tests.
 - `stores/postgres/examples/transactional`: compiling synthetic example.
 - `scripts`, `mise.toml`, `.golangci.yml`: pinned checks and formatting.
+
+## Unpublished typed effect definitions
+
+The additive `Definition[T]`, `NewDefinition`, `Prepare` and `Bind` APIs are
+candidate source only, unavailable in the published v0.1.1 pin. A definition
+owns
+one kind, payload type and explicit domain validator. `Prepare` validates before
+request construction; `Bind` checks stored metadata, exact kind, raw UTF-8
+validity before JSON decoding, unknown fields
+for ordinary structs and domain invariants before invoking a typed operation.
+Invalid payloads become permanent failures; operation errors retain normal
+finite-attempt retry and per-claim fencing. Custom JSON unmarshaling retains its
+application-defined semantics. This does not make tenant metadata authorization
+or make existing raw handlers adopt the new boundary automatically.
+
+```go
+type OrderCreated struct { OrderID string `json:"order_id"` }
+created, err := jobs.NewDefinition("order.created", validateOrderCreated)
+// Propagate err. Compose once; use created.Kind() as explicit registration key.
+handler, err := created.Bind(func(ctx context.Context, delivery jobs.Delivery,
+    payload OrderCreated) error {
+    return operation.DeliverOrder(ctx, delivery.ID, payload.OrderID)
+})
+// Propagate err before NewWorker. The operation re-establishes current
+// authority.
+request, err := created.Prepare(payload, jobs.Options{MaxAttempts: 5})
+// Retain request.ID and enqueue using the application's business transaction.
+```
+
+`Delivery` exposes a copied tenant string and stable job ID, attempt and maximum
+attempts. Handlers use the stable ID for downstream deduplication; they must not
+hold a database transaction across external delivery. Validation errors preserve
+`errors.Is` causes through a fixed public error string; workers continue to
+persist only bounded diagnostic codes. Order-notice and bounded export-ready
+fixtures cover distinct payload invariants; worker settlement tests exercise
+permanent invalid delivery, retry and final-attempt failure.
+
+Product documentation for the unpublished typed definition contract is tracked
+in the [architecture companion](https://github.com/plutoframework/pluto-site/pull/5).
+It covers explicit registration, strict decoding, permanent validation failures
+and finite-attempt retries; external effects retain at-least-once semantics.

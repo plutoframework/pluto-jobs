@@ -14,6 +14,13 @@ import (
 func TestInsertCommitsOrderAndJobTogether(t *testing.T) {
 	url := os.Getenv("PLUTO_JOBS_TEST_DATABASE_URL")
 	if url == "" {
+		if os.Getenv("PLUTO_JOBS_REQUIRE_DATABASE") == "1" {
+			t.Fatal(
+				"required Jobs SQL integration " +
+					"needs PLUTO_JOBS_TEST_DATABASE_URL",
+			)
+		}
+
 		t.Skip("requires disposable PLUTO_JOBS_TEST_DATABASE_URL")
 	}
 
@@ -84,7 +91,9 @@ func TestInsertCommitsOrderAndJobTogether(t *testing.T) {
 	// Reject the next outbox insert after its business INSERT has succeeded.
 	_, err = pool.Exec(
 		ctx,
-		"ALTER TABLE pluto_jobs ADD CONSTRAINT reject_delivery CHECK (false) NOT VALID",
+		"ALTER TABLE pluto_jobs ADD "+
+			"CONSTRAINT reject_delivery CHECK "+
+			"(false) NOT VALID",
 	)
 	if err != nil {
 		t.Fatal(err)

@@ -6,7 +6,10 @@
 
 Commit the work. Deliver the side effect.
 
-[Website](https://plutoframework.github.io/pluto-site/) · [Documentation](https://plutoframework.github.io/pluto-site/docs/backend/jobs/) · [CLI demo](https://github.com/plutoframework/pluto/blob/main/docs/DEMO.md) · [First issues](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks)
+[Website](https://plutoframework.github.io/pluto-site/) ·
+[Documentation](https://plutoframework.github.io/pluto-site/docs/backend/jobs/)
+· [CLI demo](https://github.com/plutoframework/pluto/blob/main/docs/DEMO.md) ·
+[First issues](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks)
 
 ## What you get
 
@@ -34,8 +37,10 @@ business data. Register a worker handler that calls your actual sender or HTTP
 client, propagates context and returns delivery errors. A handler returning nil
 acknowledges the job; printing a message does not deliver anything.
 
-The [purchasing application worker](https://github.com/plutoframework/pluto-example/blob/main/cmd/worker/main.go)
-and [transactional enqueue operation](https://github.com/plutoframework/pluto-example/blob/main/internal/storage/postgres/jobs.go)
+The
+[purchasing application worker](https://github.com/plutoframework/pluto-example/blob/main/cmd/worker/main.go)
+and
+[transactional enqueue operation](https://github.com/plutoframework/pluto-example/blob/main/internal/storage/postgres/jobs.go)
 show actual PostgreSQL-backed audit archival, not an external SIEM sender.
 Delivery is at least
 once; the destination must handle repeated attempts.
@@ -43,11 +48,13 @@ once; the destination must handle repeated attempts.
 ### Testing: inspect the transactional outbox locally
 
 
-The complete synthetic program below inserts an order and enqueues its job in one
+The complete synthetic program below inserts an order and enqueues its job in
+one
 transaction, then runs an explicitly registered worker. It uses PostgreSQL and
 prints completion instead of contacting a delivery provider.
 
-Follow the [copyable Docker/schema/run/verification steps](docs/TRANSACTIONAL-EXAMPLE.md)
+Follow the
+[copyable Docker/schema/run/verification steps](docs/TRANSACTIONAL-EXAMPLE.md)
 first, then run the checked-in program from `stores/postgres` with
 `DATABASE_URL` configured: `go run ./examples/transactional`.
 
@@ -183,9 +190,11 @@ func main() {
 ### Verify the testing example
 
 After one run, the guide checks that one order exists and its job is `succeeded`
-with `attempts=1`. The adapter [integration tests](stores/postgres/integration_test.go)
+with `attempts=1` . The adapter
+[integration tests](stores/postgres/integration_test.go)
 exercise rollback, commit visibility and lease fencing. Constructors never apply
-schema. Real handlers should use the stable job ID as a provider idempotency key.
+schema. Real handlers should use the stable job ID as a provider idempotency
+key.
 
 ## Read further
 
@@ -195,10 +204,19 @@ schema. Real handlers should use the stable job ID as a provider idempotency key
 
 ## Boundaries
 
-Delivery is at least once. Handlers must tolerate duplicates and cooperate with cancellation. Applications own migrations, tenant policy, retention and cleanup; no exactly-once guarantee or heartbeat renewal is implied.
+Delivery is at least once. Handlers must tolerate duplicates and cooperate with
+cancellation. Applications own migrations, tenant policy, retention and cleanup;
+no exactly-once guarantee or heartbeat renewal is implied.
 
 ## Contribute
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md), then choose a [good first issue](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks).
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) , then choose a
+[good first issue](https://github.com/plutoframework/pluto/blob/main/CONTRIBUTING.md#starter-tasks)
+.
 
 MIT licensed. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Candidate source also offers kind-bound `Definition[T]` payload validation and
+strict typed handler adapters. This unpublished additive API is documented in
+[`docs/REFERENCE.md`](docs/REFERENCE.md#unpublished-typed-effect-definitions);
+the published raw request/handler APIs remain compatible.

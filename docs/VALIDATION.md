@@ -48,3 +48,17 @@ GitHub Actions runs asynchronously on publication; local results do not claim
 that remote CI has finished. Failed jobs and successful jobs are retained until
 explicit operator cleanup. Handler cancellation remains cooperative and delivery
 remains at least once.
+
+## Strict disposable SQL command
+
+`scripts/postgres-check.sh` starts a fresh PostgreSQL 17.6 container on a
+dynamic
+loopback port, requires execution of all six named SQL/transactional-order cases
+with race detection, rejects skipped or absent cases, then runs the mutation
+checks with the same disposable database. The container is removed on exit.
+`PLUTO_JOBS_REQUIRE_DATABASE=1` changes missing database URLs from skips to
+errors
+in both SQL fixtures; ordinary local tests still explicitly skip without a URL.
+The checked-in CI invokes the strict command; hosted protection is not verified.
+Typed-definition mutations require their exact relevant business assertion,
+not merely an unrelated setup failure. Candidate APIs remain unpublished.
